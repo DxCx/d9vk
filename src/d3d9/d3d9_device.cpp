@@ -2025,6 +2025,9 @@ namespace dxvk {
     if (unlikely(ShouldRecord()))
       return m_recorder->SetVertexShader(shader);
 
+    if (shader == nullptr)
+      shader = GetPassthroughVertexShader();
+
     if (shader == m_state.vertexShader)
       return D3D_OK;
 
@@ -2042,10 +2045,6 @@ namespace dxvk {
     }
 
     changePrivate(m_state.vertexShader, shader);
-    if (shader == nullptr) {
-      shader = GetPassthroughVertexShader();
-    }
-
     BindShader(
       DxsoProgramType::VertexShader,
       GetCommonShader(shader));
@@ -2064,7 +2063,11 @@ namespace dxvk {
     if (unlikely(ppShader == nullptr))
       return D3DERR_INVALIDCALL;
 
-    *ppShader = ref(m_state.vertexShader);
+    if (m_pVS != nullptr &&
+	m_pVS == m_state.vertexShader)
+	    *ppShader = nullptr;
+    else
+	    *ppShader = ref(m_state.vertexShader);
 
     return D3D_OK;
   }
@@ -2325,6 +2328,9 @@ namespace dxvk {
     if (unlikely(ShouldRecord()))
       return m_recorder->SetPixelShader(shader);
 
+    if (shader == nullptr)
+      shader = GetPassthroughPixelShader();
+
     if (shader == m_state.pixelShader)
       return D3D_OK;
 
@@ -2342,9 +2348,6 @@ namespace dxvk {
     }
 
     changePrivate(m_state.pixelShader, shader);
-    if (shader == nullptr) {
-      shader = GetPassthroughPixelShader();
-    }
 
     BindShader(
       DxsoProgramType::PixelShader,
@@ -2361,7 +2364,11 @@ namespace dxvk {
     if (unlikely(ppShader == nullptr))
       return D3DERR_INVALIDCALL;
 
-    *ppShader = ref(m_state.pixelShader);
+    if (m_pPS != nullptr &&
+	m_pPS == m_state.pixelShader)
+	    *ppShader = nullptr;
+    else
+	    *ppShader = ref(m_state.pixelShader);
 
     return D3D_OK;
   }
