@@ -34,6 +34,8 @@ namespace dxvk {
   class D3D9Initializer;
   class D3D9Query;
   class D3D9StateBlock;
+  class D3D9VertexShader;
+  class D3D9PixelShader;
 
   enum class D3D9DeviceFlag : uint64_t {
     DirtyFramebuffer,
@@ -843,6 +845,9 @@ namespace dxvk {
       }
     }
 
+    D3D9VertexShader* GetPassthroughVertexShader();
+    D3D9PixelShader* GetPassthroughPixelShader();
+
     Com<IDirect3D9Ex>               m_parent;
     UINT                            m_adapter;
     D3DDEVTYPE                      m_deviceType;
@@ -885,6 +890,9 @@ namespace dxvk {
     std::unordered_map<
       DWORD,
       Com<D3D9VertexDecl>> m_fvfTable;
+
+    IDirect3DVertexShader9*         m_pVS;
+    IDirect3DPixelShader9*          m_pPS;
 
     uint32_t                        m_streamUsageMask = 0;
     uint32_t                        m_instancedData   = 0;

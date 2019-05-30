@@ -27,6 +27,30 @@
 #endif
 
 namespace dxvk {
+  /* TODO: Where is the correct place for this?? */
+  static const DWORD g_pVS_function[] = {
+    0xFFFE0300, 0x0014FFFE, 0x42415443, 0x0000001C, 0x00000023, 0xFFFE0300, 0x00000000, 0x00000000, 0x00000100, 0x0000001C,
+    0x335F7376, 0x4D00305F, 0x6F726369, 0x74666F73, 0x29522820, 0x534C4820, 0x6853204C, 0x72656461, 0x6D6F4320, 0x656C6970,
+    0x30312072, 0xAB00312E, 0x05000051, 0xA00F0000, 0xBF000000, 0x3F000000, 0x3F800000, 0x00000000, 0x0200001F, 0x80000000,
+    0x900F0000, 0x0200001F, 0x80000005, 0x900F0001, 0x0200001F, 0x8000000A, 0x900F0002, 0x0200001F, 0x80010005, 0x900F0003,
+    0x0200001F, 0x80000000, 0xE00F0000, 0x0200001F, 0x8000000A, 0xE00F0001, 0x0200001F, 0x80000005, 0xE0030002, 0x04000004,
+    0x800F0000, 0x90040000, 0xA0FA0000, 0xA0BF0000, 0x02000001, 0x80060001, 0xA0FF0000, 0x03000002, 0x800F0002, 0xA0140000,
+    0x90500003, 0x02000006, 0x80010002, 0x80000002, 0x03000002, 0x80010001, 0x80000002, 0x80000002, 0x03000002, 0x80030003,
+    0xA0550000, 0x91E10003, 0x02000006, 0x80010002, 0x80550003, 0x02000006, 0x80010003, 0x80000003, 0x03000002, 0x80020003,
+    0x80000003, 0x80000003, 0x03000005, 0x80080001, 0x80000002, 0x80550002, 0x03000009, 0xE0010000, 0x80E40000, 0x80E40001,
+    0x02000006, 0x80010000, 0x80FF0002, 0x03000005, 0x80080000, 0x80000000, 0x80AA0002, 0x03000005, 0x80070000, 0xA0FA0000,
+    0x90C40000, 0x02000001, 0x800D0003, 0xA0B70000, 0x03000009, 0xE0020000, 0x80E40000, 0x80E40003, 0x02000001, 0xE00C0000,
+    0xA0940000, 0x02000001, 0xE00F0001, 0x90C60002, 0x02000001, 0xE0030002, 0x90E40001, 0x0000FFFF
+  };
+
+  static const DWORD g_pPS_function[] = {
+    0xFFFF0300, 0x001FFFFE, 0x42415443, 0x0000001C, 0x0000004F, 0xFFFF0300, 0x00000001, 0x0000001C, 0x00000100, 0x00000048,
+    0x00000030, 0x00000003, 0x00000001, 0x00000038, 0x00000000, 0x44325F73, 0xABABAB00, 0x000C0004, 0x00010001, 0x00000001,
+    0x00000000, 0x335F7370, 0x4D00305F, 0x6F726369, 0x74666F73, 0x29522820, 0x534C4820, 0x6853204C, 0x72656461, 0x6D6F4320,
+    0x656C6970, 0x30312072, 0xAB00312E, 0x0200001F, 0x8000000A, 0x900F0000, 0x0200001F, 0x80000005, 0x90030001, 0x0200001F,
+    0x90000000, 0xA00F0800, 0x03000042, 0x800F0000, 0x90E40001, 0xA0E40800, 0x03000005, 0x800F0800, 0x80E40000, 0x90E40000,
+    0x0000FFFF
+  };
 
   D3D9DeviceEx::D3D9DeviceEx(
           IDirect3D9Ex*     pParent,
@@ -52,6 +76,8 @@ namespace dxvk {
     , m_shaderModules  ( new D3D9ShaderModuleSet )
     , m_d3d9Formats    ( dxvkAdapter )
     , m_d3d9Options    ( dxvkAdapter->instance()->config() )
+    , m_pVS            ( nullptr )
+    , m_pPS            ( nullptr )
     , m_dxsoOptions    ( m_dxvkDevice, m_d3d9Options ) {
     if (bExtended)
       m_flags.set(D3D9DeviceFlag::ExtendedDevice);
@@ -102,6 +128,16 @@ namespace dxvk {
   }
 
   D3D9DeviceEx::~D3D9DeviceEx() {
+    if (m_pVS) {
+      m_pVS->Release();
+      m_pVS = nullptr;
+    }
+
+    if (m_pPS) {
+      m_pPS->Release();
+      m_pPS = nullptr;
+    }
+
     Flush();
     SynchronizeCsThread();
 
@@ -2006,6 +2042,9 @@ namespace dxvk {
     }
 
     changePrivate(m_state.vertexShader, shader);
+    if (shader == nullptr) {
+      shader = GetPassthroughVertexShader();
+    }
 
     BindShader(
       DxsoProgramType::VertexShader,
@@ -2303,6 +2342,9 @@ namespace dxvk {
     }
 
     changePrivate(m_state.pixelShader, shader);
+    if (shader == nullptr) {
+      shader = GetPassthroughPixelShader();
+    }
 
     BindShader(
       DxsoProgramType::PixelShader,
@@ -4503,6 +4545,24 @@ namespace dxvk {
 
       return D3D_OK;
     }
+
+  D3D9VertexShader* D3D9DeviceEx::GetPassthroughVertexShader() {
+    if (unlikely(m_pVS == nullptr)) {
+      if (CreateVertexShader(g_pVS_function, &m_pVS) < 0)
+        return nullptr;
+    }
+
+    return static_cast<D3D9VertexShader*>(m_pVS);
+  }
+
+  D3D9PixelShader* D3D9DeviceEx::GetPassthroughPixelShader() {
+    if (unlikely(m_pPS == nullptr)) {
+      if (CreatePixelShader(g_pPS_function, &m_pPS) < 0)
+        return nullptr;
+    }
+
+    return static_cast<D3D9PixelShader*>(m_pPS);
+  }
 
   void D3D9DeviceEx::ResolveZ() {
     D3D9Surface*           src = static_cast<D3D9Surface*>(m_state.depthStencil);
